@@ -32,13 +32,16 @@
   (let ([state (make-alist props)]
         [methods `()])
 
-    ; Add a method to the methods alist of symbol-procedure
-    (define (add-method! m-name proc)
-      (if (assoc m-name methods)
-          (set! methods (update-alist m-name proc))
-          (set! methods (cons (cons m-name proc) methods)))
-      m-name)
+    ; Add/update a method to the methods alist of symbol-procedure
+    (define (add-method! selector proc)
+      (if (assoc selector methods)
+          (set! methods (update-alist selector proc))
+          (set! methods (cons (cons selector proc) methods)))
+      selector)
     (add-method! `add-method! add-method!)
+
+    ; Remove a method from the methods alist
+    ;(define (delete-method!
 
     ; Return the name of the created object
     (define (get-name) name)
@@ -67,8 +70,8 @@
     (add-method! `delete-state! delete-state!)
 
     ; Method validation for dispatcher
-    (define (understand? method)
-      (if (assoc method methods)
+    (define (understand? selector)
+      (if (assoc selector methods)
           #t
           #f))
     (add-method! `understand? understand?)
