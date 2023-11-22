@@ -13,6 +13,20 @@
     (if (null? props)
         `()
         (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
+  ; Helper to update the a value of a ppty on an alist
+  (define (update-alist alist key value)
+    (if (null? alist)
+        `()
+        (if (eq? (caar alist) key)
+            (cons (cons key value) (cdr alist))
+            (cons (car alist) (update-alist (cdr alist) key value)))))
+  ; Helper to remove an entry from an alist
+  (define (rm-ele-alist alist key)
+        (if (null? alist)
+            `()
+            (if (eq? (caar alist) key)
+                (rm-ele-alist (cdr alist) key)
+                (cons (car alist) (rm-ele-alist (cdr alist) key)))))
   
   ; Store the object's state (props) and init the methods alist
   (let ([state (make-alist props)]
@@ -21,8 +35,10 @@
     ; Add a method to the methods alist of symbol-procedure
     (define (add-method! m-name proc)
       (if (assoc m-name methods)
-          (display "method ~a already exists." m-name)
-          (set! methods (cons (cons m-name proc) methods))))
+          (set! methods (update-alist m-name proc))
+          (set! methods (cons (cons m-name proc) methods)))
+      m-name)
+    (add-method! `add-method! add-method!)
 
     ; Return the name of the created object
     (define (get-name) name)
@@ -35,30 +51,43 @@
 
     ; Get the value for a property (var) at the current state
     (define (get-state var)
-      (cdr (assoc var state)))
+      (if (assoc var state)
+          (cdr (assoc var state))
+          (error "Property name does not exist.")))
     (add-method! `get-state get-state)
 
     ; Change the value for a property
     (define (set-state! var value)
-      ; Helper to update the object's state alist
-      (define (update-alist alist key value)
-        (if (null? alist)
-            `()
-            (if (eq? (caar alist) key)
-                (cons (cons key value) (cdr alist))
-                (cons (car alist) (update-alist (cdr alist) key value)))))
       (set! state (update-alist state var value)))
     (add-method! `set-state! set-state!)
 
-    ; Dispatcher for method calls
-    (define (dispatch method . args)
-      (let ([method-pair (assoc method methods)])
-        (if method-pair
-            (apply (cdr method-pair) args)
-            `doesNotUnderstand)))
-    (display methods)
-    (newline)
-    (display state)
-    (newline)
-    ; Call method dispatcher
-    dispatch))
+    ; Delete a property and its value
+    (define (delete-state! var)
+      (set! state (rm-ele-alist state var)))
+    (add-method! `delete-state! delete-state!)
+
+    ; Method validation for dispatcher
+    (define (understand? method)
+      (if (assoc method methods)
+          #t
+          #f))
+    (add-method! `understand? understand?)
+
+    ; Adding method post-construction
+    ;(define (add-method! selector method)
+      
+    
+      ; Dispatcher for method calls
+      (define (dispatch method . args)
+        ;(let ([method-pair (assoc method methods)])
+        ;(if method-pair
+        (if (understand? method)
+            (apply (cdr (assoc method methods)) args)
+            `doesNotUnderstand))
+       (display methods)
+;;       (newline)
+;;       (display state)
+;;       (newline)
+      ; Call method dispatcher
+      dispatch))
+  
