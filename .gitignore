@@ -1,2 +1,6 @@
+# temp files and compiled
 *~
 compiled/
+
+# tests
+*test.rkt
