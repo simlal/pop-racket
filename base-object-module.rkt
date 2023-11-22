@@ -32,19 +32,29 @@
   (let ([state (make-alist props)]
         [methods `()])
 
+    ; Method validation for dispatcher
+    (define (understand? selector)
+      (if (assoc selector methods)
+          #t
+          #f))
+    
     ; Add/update a method to the methods alist of symbol-procedure
     (define (add-method! selector proc)
-      (if (assoc selector methods)
+      (if (understand? selector)
           (set! methods (update-alist methods selector proc))
           (set! methods (cons (cons selector proc) methods)))
       selector)
+    (add-method! `understand? understand?)    ; placement here to deal with REPL order
     (add-method! `add-method! add-method!)
 
     ; Remove a method from the methods alist
     (define (delete-method! selector)
-      (""))
+      (if (understand? selector)
+          (set! methods (rm-ele-alist methods selector))
+          (`doesNotUnderstand))
+      selector)
+    (add-method! `delete-method! delete-method!)
       
-
     ; Return the name of the created object
     (define (get-name) name)
     (add-method! `get-name get-name)
@@ -71,21 +81,12 @@
       (set! state (rm-ele-alist state var)))
     (add-method! `delete-state! delete-state!)
 
-    ; Method validation for dispatcher
-    (define (understand? selector)
-      (if (assoc selector methods)
-          #t
-          #f))
-    (add-method! `understand? understand?)
-
     ; Adding method post-construction
     ;(define (add-method! selector method)
       
     
       ; Dispatcher for method calls
       (define (dispatch method . args)
-        ;(let ([method-pair (assoc method methods)])
-        ;(if method-pair
         (if (understand? method)
             (apply (cdr (assoc method methods)) args)
             `doesNotUnderstand))
