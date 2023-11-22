@@ -35,13 +35,15 @@
     ; Add/update a method to the methods alist of symbol-procedure
     (define (add-method! selector proc)
       (if (assoc selector methods)
-          (set! methods (update-alist selector proc))
+          (set! methods (update-alist methods selector proc))
           (set! methods (cons (cons selector proc) methods)))
       selector)
     (add-method! `add-method! add-method!)
 
     ; Remove a method from the methods alist
-    ;(define (delete-method!
+    (define (delete-method! selector)
+      (""))
+      
 
     ; Return the name of the created object
     (define (get-name) name)
