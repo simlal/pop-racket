@@ -13,23 +13,35 @@
       (if (null? props)
           `()
           (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
+  
   ; Store the object's state (props) and init the methods alist
   (let ([state (make-alist props)]
         [methods `()])
 
+    ; Add a method to the methods alist of symbol-procedure
+    (define (add-method! m-name proc)
+      (if (assoc m-name methods)
+          (display "method ~a already exists." m-name)
+          (set! methods (cons (cons m-name proc) methods))))
+
     ; Return the name of the created object
     (define (get-name) name)
-    (set! methods (cons (cons `get-name get-name) methods))
+    (add-method! `get-name get-name)
 
     ; Change the name of an already existing object
     (define (set-name! new-name)
       (set! name new-name))
-    (set! methods (cons (cons `set-name! set-name!) methods))
+    (add-method! `set-name! set-name!)
 
     ; Get the value for a property (var) at the current state
     (define (get-state var)
       (cdr (assoc var state)))
-    (set! methods (cons (cons `get-state get-state) methods))
+    (add-method! `get-state get-state)
+
+    ; Change the value for a property
+;;     (define (set-state! var value)
+;;       (set! (cdr (assoc var state)) value))
+;;     (set! methods (cons (cons `set-state! set-state!) methods))
 
     ; Dispatcher for method calls
     (define (dispatch method . args)
@@ -41,4 +53,5 @@
     (newline)
     (display state)
     (newline)
+    ; Call method dispatcher
     dispatch))
