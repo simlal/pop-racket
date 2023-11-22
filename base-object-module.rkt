@@ -8,11 +8,11 @@
 ; name as symbol
 ; props a flat list of pairs of pptyname-val combinations
 (define (make-object! name . props)
-  ; Build an association list (pairs list) with the props passed in
-    (define (make-alist props)
-      (if (null? props)
-          `()
-          (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
+  ; Build an association list (alist, list of pairs) with the props passed in
+  (define (make-alist props)
+    (if (null? props)
+        `()
+        (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
   
   ; Store the object's state (props) and init the methods alist
   (let ([state (make-alist props)]
@@ -39,9 +39,16 @@
     (add-method! `get-state get-state)
 
     ; Change the value for a property
-;;     (define (set-state! var value)
-;;       (set! (cdr (assoc var state)) value))
-;;     (set! methods (cons (cons `set-state! set-state!) methods))
+    (define (set-state! var value)
+      ; Helper to update the object's state alist
+      (define (update-alist alist key value)
+        (if (null? alist)
+            `()
+            (if (eq? (caar alist) key)
+                (cons (cons key value) (cdr alist))
+                (cons (car alist) (update-alist (cdr alist) key value)))))
+      (set! state (update-alist state var value)))
+    (add-method! `set-state! set-state!)
 
     ; Dispatcher for method calls
     (define (dispatch method . args)
