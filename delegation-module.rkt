@@ -5,7 +5,8 @@
 ; ***************** IFT359 / TP3 Groupe AH
 ; ***************** Lalonde, Simon 22 225 192
 
-;;; object delegation module ;;;
+;;; *** object delegation module *** ;;;
+; *** Constructor ***
 ; name as object name
 ; friends as list of objects
 ; props as an association list of ((key . value) ...) pairs
@@ -25,12 +26,8 @@
 
   ; Helper to remove an entry from an alist
   (define (rm-ele-alist alist key)
-    (if (null? alist)
-        `()
-        (if (eq? (caar alist) key)
-            (rm-ele-alist (cdr alist) key)
-            (cons (car alist) (rm-ele-alist (cdr alist) key)))))
-  
+    (filter (lambda (prop) (not (eq? key (car prop)))) alist))          
+
   ;*** Init object state at construction ***
   ; Store the object's state (props) and init the methods alist
   (let ([state (make-alist props)]
@@ -39,10 +36,8 @@
     ;*** Method management ***
     ; Method validation for dispatcher
     (define (understand? selector)
-      (if (assoc selector methods)
-          #t
-          #f))
-    
+      (pair? (assoc selector methods)))
+
     ; Add/update a method to the methods alist of symbol-procedure
     (define (add-method! selector proc)
       (if (understand? selector)
@@ -56,11 +51,11 @@
     (define (delete-method! selector)
       (if (understand? selector)
           (set! methods (rm-ele-alist methods selector))
-          (`doesNotUnderstand))
+          `doesNotUnderstand)
       selector)
     (add-method! `delete-method! delete-method!)
 
-    ;*** Object Name management ***  
+    ;*** Object Name management ***
     ; Return the name of the created object
     (define (get-name) name)
     (add-method! `get-name get-name)
@@ -71,30 +66,54 @@
       new-name)
     (add-method! `set-name! set-name!)
 
-    ;*** Friends management ***
+    ;*** Local-friends management ***
     ; Return the local-friends
     (define (get-friends) friends)
     (add-method! `get-friends get-friends)
 
-    ; Predicate to check if an object is in friends list
+    ; Predicate to check if an object is in local-friends list
     (define (is-my-friend? object)
-      (if (member (object `get-name) friends)
-        #t
-        #f))
-    (add-method! `is-my-friend is-my-friend?)
+      (member (object `get-name) friends))
+    (add-method! `is-my-friend? is-my-friend?)
 
-    ; *** Properties management ***
+    ; Add another object to local-friend list
+    (define (add-friend! object)
+      (if (is-my-friend? object)
+          #f    ; Avoid double entries
+          (set! friends (append friends (list (object 'get-name))))))
+    (add-method! `add-friend! add-friend!)
+
+    ; Remove an object from the local-friends list
+    (define (remove-friend! object)
+      (if (is-my-friend? object)
+          (set! friends (remove (object 'get-name) friends))
+          #f))
+    (add-method! `remove-friend! remove-friend!)
+
+    ;TODO Recursive friends management
+    ;TODO State management in a recursive way with delegation
+    ;TODO Recursive method management with delagation
+
+    ; *** Local properties management ***
+    ; Helper to check if ppty is set on an object
+    (define (own? var)
+      (pair? (assoc var state)))
+    (add-method! `own? own?)
+
     ; Get the value for a property (var) at the current state
     (define (get-state var)
-      (if (assoc var state)
+      (if (own? var)
           (cdr (assoc var state))
           `undefined))
     (add-method! `get-state get-state)
 
     ; Change the value for a property
     (define (set-state! var value)
-      (set! state (update-alist state var value))
-      var)
+      (if (own? var)
+          (begin (set! state (update-alist state var value))
+                 #f)
+          (begin (set! state (update-alist state var value))
+                 var)))      
     (add-method! `set-state! set-state!)
 
     ; Delete a property and its value
@@ -102,8 +121,16 @@
       (set! state (rm-ele-alist state var))
       var)
     (add-method! `delete-state! delete-state!)
-    
-    ; *** Method parser/closure *** 
+
+    ; Add a new property
+    (define (add-state! var val)
+      (if (own? var)
+          #f
+          (begin (set! state (cons (cons var val) state))
+                var)))
+    (add-method! `add-state! add-state!)
+
+    ; *** Method parser/closure ***
     ; Dispatcher for method calls
     (define (dispatch method . args)
       (if (understand? method)
