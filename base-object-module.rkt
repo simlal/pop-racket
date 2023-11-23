@@ -15,9 +15,11 @@
         (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
   ; Helper to update the a value of a ppty on an alist
   (define (update-alist alist key value)
-    (cond ((null? alist) (list (cons key value)))
-          ((eq? (caar alist) key) (cons (cons key value) (cdr alist)))
-          (else (cons (car alist) (update-alist (cdr alist) key value)))))
+    (cond
+      [(null? alist) (list (cons key value))]    ; create alist when empty
+      [(eq? (caar alist) key) (cons (cons key value) (cdr alist))]
+      [else (cons (car alist) (update-alist (cdr alist) key value))]))
+
   ; Helper to remove an entry from an alist
   (define (rm-ele-alist alist key)
     (if (null? alist)
@@ -80,10 +82,6 @@
       (set! state (rm-ele-alist state var))
       var)
     (add-method! `delete-state! delete-state!)
-
-    ; Adding method post-construction
-    ;(define (add-method! selector method)
-      
     
     ; Dispatcher for method calls
     (define (dispatch method . args)
