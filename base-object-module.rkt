@@ -15,18 +15,16 @@
         (cons (cons (car props) (cadr props)) (make-alist (cddr props)))))
   ; Helper to update the a value of a ppty on an alist
   (define (update-alist alist key value)
+    (cond ((null? alist) (list (cons key value)))
+          ((eq? (caar alist) key) (cons (cons key value) (cdr alist)))
+          (else (cons (car alist) (update-alist (cdr alist) key value)))))
+  ; Helper to remove an entry from an alist
+  (define (rm-ele-alist alist key)
     (if (null? alist)
         `()
         (if (eq? (caar alist) key)
-            (cons (cons key value) (cdr alist))
-            (cons (car alist) (update-alist (cdr alist) key value)))))
-  ; Helper to remove an entry from an alist
-  (define (rm-ele-alist alist key)
-        (if (null? alist)
-            `()
-            (if (eq? (caar alist) key)
-                (rm-ele-alist (cdr alist) key)
-                (cons (car alist) (rm-ele-alist (cdr alist) key)))))
+            (rm-ele-alist (cdr alist) key)
+            (cons (car alist) (rm-ele-alist (cdr alist) key)))))
   
   ; Store the object's state (props) and init the methods alist
   (let ([state (make-alist props)]
@@ -68,32 +66,29 @@
     (define (get-state var)
       (if (assoc var state)
           (cdr (assoc var state))
-          (error "Property name does not exist.")))
+          `undefined))
     (add-method! `get-state get-state)
 
     ; Change the value for a property
     (define (set-state! var value)
-      (set! state (update-alist state var value)))
+      (set! state (update-alist state var value))
+      var)
     (add-method! `set-state! set-state!)
 
     ; Delete a property and its value
     (define (delete-state! var)
-      (set! state (rm-ele-alist state var)))
+      (set! state (rm-ele-alist state var))
+      var)
     (add-method! `delete-state! delete-state!)
 
     ; Adding method post-construction
     ;(define (add-method! selector method)
       
     
-      ; Dispatcher for method calls
-      (define (dispatch method . args)
-        (if (understand? method)
-            (apply (cdr (assoc method methods)) args)
-            `doesNotUnderstand))
-       (display methods)
-;;       (newline)
-;;       (display state)
-;;       (newline)
-      ; Call method dispatcher
-      dispatch))
-  
+    ; Dispatcher for method calls
+    (define (dispatch method . args)
+      (if (understand? method)
+          (apply (cdr (assoc method methods)) args)
+          `doesNotUnderstand))
+    ; Call method dispatcher
+    dispatch))
