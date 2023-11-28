@@ -73,25 +73,59 @@
 
     ; Predicate to check if an object is in local-friends list
     (define (is-my-friend? object)
-      (member (object `get-name) friends))
+      (member object friends eq?))    ; Not only value but by reference
     (add-method! `is-my-friend? is-my-friend?)
 
     ; Add another object to local-friend list
     (define (add-friend! object)
       (if (is-my-friend? object)
           #f    ; Avoid double entries
-          (set! friends (append friends (list (object 'get-name))))))
+          (begin (set! friends (append friends (list object)))
+                 (object `get-name))))    ; print name instead of obj
     (add-method! `add-friend! add-friend!)
 
     ; Remove an object from the local-friends list
     (define (remove-friend! object)
-      (if (is-my-friend? object)
-          (set! friends (remove (object 'get-name) friends))
-          #f))
+      (if (not (is-my-friend? object))
+          #f
+          (begin (set! friends (remove object friends))
+                 (object `get-name))))
     (add-method! `remove-friend! remove-friend!)
 
-    ;TODO Recursive friends management
-    ;TODO State management in a recursive way with delegation
+    ;*** Recursive friends management ***
+    ; Get all friends recursively
+    (define (friends*)
+      ; Use depth-first-search with foldl to iterate and accumnulate
+      (define (dfs friend all-friends)
+        (if (member friend all-friends eq?)
+            all-friends
+            (foldl dfs (cons friend all-friends) (friend 'get-friends))))
+      (foldl dfs '() friends))
+    (add-method! `friends* friends*)
+
+    (define (self-and-friends*)
+      (if (member dispatch (friends*))
+          (friends*)
+          (append (list dispatch) (friends*))))
+    (add-method! `self-and-friends* self-and-friends*)
+
+    (define (is-my-friend*? object)
+      (member object (friends*) eq?))
+    (add-method! `is-my-friend*? is-my-friend*?)
+      
+    
+    ; *** State management in a recursive way with delegation ***
+    (define (owners* var)
+      ; Add self to list of owners if possess var
+      (filter (lambda (friend) (friend `own? var)) (self-and-friends*)))
+    (add-method! `owners* owners*)
+
+    (define (own*? var)
+        (if (null? (owners* var))
+            #f
+            #t))
+    (add-method! `own*? own*?)
+
     ;TODO Recursive method management with delagation
 
     ; *** Local properties management ***
