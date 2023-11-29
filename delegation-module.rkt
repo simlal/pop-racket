@@ -173,12 +173,16 @@
 
     ; Set a new value for a property among object and friends
     ; The ppty is created if is not found in any objects
-    (define (set-state*! var value)
+    (define (set-state*! var val)
       (if (own*? var)
-          (begin ((car (owners* var)) `set-state! var value)
-                 var)
-          (begin (set-state! var value)
-                 #f)))
+          (if (equal? (get-state* var) val)
+              #f    ;    if new val is same as old-val
+              ; Set the new value if different
+              (begin ((car (owners* var)) `set-state! var val)
+                     var))
+          ; Set the value on the object if not found
+          (begin (set-state! var val)
+                 var)))
     (add-method! `set-state*! set-state*!)
 
     ; Remove the property among object and friends if exists
@@ -188,7 +192,15 @@
           #f))
     (add-method! `delete-state*! delete-state*!)
 
-    ;TODO implement add-state*!
+    ; Add a property to an friend if it does not exists
+    (define (add-state*! var val object)
+      (cond
+        [(eq? object dispatch) #f]
+        [(object `own? var) #f]
+        [else (begin (object `set-state! var val)
+                     var)]))
+    (add-method! `add-state*! add-state*!)
+    
 
     ;TODO Recursive method management with delagation
 
