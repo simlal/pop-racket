@@ -65,6 +65,42 @@
       (set! name new-name)
       new-name)
     (add-method! `set-name! set-name!)
+    
+    ; *** Local properties management ***
+    ; Helper to check if ppty is set on an object
+    (define (own? var)
+      (pair? (assoc var state)))
+    (add-method! `own? own?)
+
+    ; Get the value for a property (var) at the current state
+    (define (get-state var)
+      (if (own? var)
+          (cdr (assoc var state))
+          `undefined))
+    (add-method! `get-state get-state)
+
+    ; Change the value for a property
+    (define (set-state! var value)
+      (if (own? var)
+          (begin (set! state (update-alist state var value))
+                 #f)
+          (begin (set! state (update-alist state var value))
+                 var)))      
+    (add-method! `set-state! set-state!)
+
+    ; Delete a property and its value
+    (define (delete-state! var)
+      (set! state (rm-ele-alist state var))
+      var)
+    (add-method! `delete-state! delete-state!)
+
+    ; Add a new property
+    (define (add-state! var val)
+      (if (own? var)
+          #f
+          (begin (set! state (cons (cons var val) state))
+                var)))
+    (add-method! `add-state! add-state!)
 
     ;*** Local-friends management ***
     ; Return the local-friends
@@ -115,54 +151,46 @@
       
     
     ; *** State management in a recursive way with delegation ***
+    ; List all the objects with the queried ppty
     (define (owners* var)
       ; Add self to list of owners if possess var
       (filter (lambda (friend) (friend `own? var)) (self-and-friends*)))
     (add-method! `owners* owners*)
 
+    ; Predicate to check if any of all objects possess the queried ppty
     (define (own*? var)
         (if (null? (owners* var))
             #f
             #t))
     (add-method! `own*? own*?)
 
-    ;TODO Recursive method management with delagation
-
-    ; *** Local properties management ***
-    ; Helper to check if ppty is set on an object
-    (define (own? var)
-      (pair? (assoc var state)))
-    (add-method! `own? own?)
-
-    ; Get the value for a property (var) at the current state
-    (define (get-state var)
-      (if (own? var)
-          (cdr (assoc var state))
+    ; Get state of first ele in self-and-friends*
+    (define (get-state* var)
+      (if (own*? var)
+          ((car (owners* var)) `get-state var)
           `undefined))
-    (add-method! `get-state get-state)
+    (add-method! `get-state* get-state*)
 
-    ; Change the value for a property
-    (define (set-state! var value)
-      (if (own? var)
-          (begin (set! state (update-alist state var value))
-                 #f)
-          (begin (set! state (update-alist state var value))
-                 var)))      
-    (add-method! `set-state! set-state!)
+    ; Set a new value for a property among object and friends
+    ; The ppty is created if is not found in any objects
+    (define (set-state*! var value)
+      (if (own*? var)
+          (begin ((car (owners* var)) `set-state! var value)
+                 var)
+          (begin (set-state! var value)
+                 #f)))
+    (add-method! `set-state*! set-state*!)
 
-    ; Delete a property and its value
-    (define (delete-state! var)
-      (set! state (rm-ele-alist state var))
-      var)
-    (add-method! `delete-state! delete-state!)
+    ; Remove the property among object and friends if exists
+    (define (delete-state*! var)
+      (if (own*? var)
+          ((car (owners* var)) `delete-state! var)
+          #f))
+    (add-method! `delete-state*! delete-state*!)
 
-    ; Add a new property
-    (define (add-state! var val)
-      (if (own? var)
-          #f
-          (begin (set! state (cons (cons var val) state))
-                var)))
-    (add-method! `add-state! add-state!)
+    ;TODO implement add-state*!
+
+    ;TODO Recursive method management with delagation
 
     ; *** Method parser/closure ***
     ; Dispatcher for method calls
