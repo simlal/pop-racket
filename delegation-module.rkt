@@ -197,12 +197,36 @@
       (cond
         [(eq? object dispatch) #f]
         [(object `own? var) #f]
+        [(not (is-my-friend*? object)) #f]
         [else (begin (object `set-state! var val)
                      var)]))
     (add-method! `add-state*! add-state*!)
     
 
-    ;TODO Recursive method management with delagation
+    ; *** Recursive method management with delagation ***
+    ; Predicate to check if method is in one of self-and-friends
+    (define (understand*? selector)
+      ; list of objects that understand
+      (let ([understand-objs (map (lambda (obj) (obj `understand? selector)) (friends*))])
+        (not (null? (filter (lambda (bool-ele) (eq? bool-ele #t)) understand-objs)))))
+    (add-method! `understand*? understand*?)
+
+    ; Add or replace a method to a friend's object
+    (define (add-method*! selector method object)
+      (cond
+        [(eq? object dispatch) #f]    ; not self
+        [(not (is-my-friend*? object)) #f]    ; obj must be friend
+        [else (object `add-method! selector method)]))
+    (add-method! `add-method*! add-method*!)
+
+    ; Remove a method from a friend's object
+    (define (delete-method*! selector object)
+      (cond
+        [(eq? object dispatch) #f]    ; not self
+        [(not (object `understand? selector)) #f]    ; obj must have method
+        [(not (is-my-friend*? object)) #f]    ; obj must be friend
+        [else (object `delete-method! selector)]))
+    (add-method! `delete-method*! delete-method*!)
 
     ; *** Method parser/closure ***
     ; Dispatcher for method calls
