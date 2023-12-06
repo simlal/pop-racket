@@ -26,12 +26,13 @@
 
   ; Helper to remove an entry from an alist
   (define (rm-ele-alist alist key)
-    (filter (lambda (prop) (not (eq? key (car prop)))) alist))          
+    (filter (lambda (prop) (not (eq? key (car prop)))) alist))
 
-  ;*** Init object state at construction ***
+    ;*** Init object state at construction ***
   ; Store the object's state (props) and init the methods alist
-  (let ([state (make-alist props)]
+  (let ([state (append (list (cons `name name) (cons `friends friends)) (make-alist props))]
         [methods `()])
+    ; (displayln state) ; display at construction for debugging
 
     ;*** Method management ***
     ; Method validation for dispatcher
@@ -81,11 +82,8 @@
 
     ; Change the value for a property
     (define (set-state! var value)
-      (if (own? var)
-          (begin (set! state (update-alist state var value))
-                 #f)
-          (begin (set! state (update-alist state var value))
-                 var)))      
+      (set! state (update-alist state var value))
+      var)
     (add-method! `set-state! set-state!)
 
     ; Delete a property and its value
@@ -104,28 +102,28 @@
 
     ;*** Local-friends management ***
     ; Return the local-friends
-    (define (get-friends) friends)
-    (add-method! `get-friends get-friends)
+    (define (friends) (get-state `friends))
+    (add-method! `friends friends)
 
     ; Predicate to check if an object is in local-friends list
     (define (is-my-friend? object)
-      (member object friends eq?))    ; Not only value but by reference
+      (member object (friends) eq?))    ; Not only value but by reference
     (add-method! `is-my-friend? is-my-friend?)
 
     ; Add another object to local-friend list
     (define (add-friend! object)
       (if (is-my-friend? object)
           #f    ; Avoid double entries
-          (begin (set! friends (append friends (list object)))
-                 (object `get-name))))    ; print name instead of obj
+          (begin (set-state! `friends (append (friends) (list object)))
+                 object)))
     (add-method! `add-friend! add-friend!)
 
     ; Remove an object from the local-friends list
     (define (remove-friend! object)
       (if (not (is-my-friend? object))
           #f
-          (begin (set! friends (remove object friends))
-                 (object `get-name))))
+          (begin (set-state! `friends (remove object (friends)))
+                 object)))
     (add-method! `remove-friend! remove-friend!)
 
     ;*** Recursive friends management ***
@@ -135,8 +133,8 @@
       (define (dfs friend all-friends)
         (if (member friend all-friends eq?)
             all-friends
-            (foldl dfs (cons friend all-friends) (friend 'get-friends))))
-      (foldl dfs '() friends))
+            (foldl dfs (cons friend all-friends) (friend 'friends))))
+      (foldl dfs '() (friends)))
     (add-method! `friends* friends*)
 
     (define (self-and-friends*)
@@ -207,9 +205,16 @@
     ; Predicate to check if method is in one of self-and-friends
     (define (understand*? selector)
       ; list of objects that understand
-      (let ([understand-objs (map (lambda (obj) (obj `understand? selector)) (friends*))])
+      (let ([understand-objs (map (lambda (obj) (obj `understand? selector)) (self-and-friends*))])
         (not (null? (filter (lambda (bool-ele) (eq? bool-ele #t)) understand-objs)))))
     (add-method! `understand*? understand*?)
+
+    (define (delegate* selector)
+      (let ([understand-objs (filter (lambda (obj) (obj `understand? selector)) (self-and-friends*))])
+        (if (null? understand-objs)
+            (`noOneUnderstands)
+            (car understand-objs))))
+    (add-method! `delegate* delegate*)
 
     ; Add or replace a method to a friend's object
     (define (add-method*! selector method object)
@@ -231,8 +236,9 @@
     ; *** Method parser/closure ***
     ; Dispatcher for method calls
     (define (dispatch method . args)
-      (if (understand? method)
-          (apply (cdr (assoc method methods)) args)
-          `doesNotUnderstand))
+      (cond
+        [(understand? method) (apply (cdr (assoc method methods)) args)]
+        [(understand*? method) (apply (delegate* method) method args)]
+        [else `doesNotUnderstand]))
     ; Call method dispatcher
     dispatch))
